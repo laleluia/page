@@ -1,13 +1,22 @@
 ## Lara Aleluia Reis
 
 Born in 1984 in Lisbon, Portugal 
+
 Married with 2 little kids
+Likes yellow, skateparks and sunny days
 
-Currently works at [EIEE](www.eiee.org)
+Modeller, currently works at [EIEE](www.eiee.org)
 
-### Markdown
+### Activities
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+* Development and mantainence of the WITCH Integrated Assessment Model air pollution module
+* Development and mantainence of the FASST(R) model
+* Cost-Benefit Analisys of air pollution and climate damages
+* Climate policy scenario analisys
+* Optimal R&D insvestment pathways 
+
+
+
 
 ```markdown
 Syntax highlighted code block
