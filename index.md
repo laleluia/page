@@ -1,8 +1,9 @@
-## Welcome to GitHub Pages
+## Lara Aleluia Reis
 
-You can use the [editor on GitHub](https://github.com/laleluia/page/edit/master/index.md) to maintain and preview the content for your website in Markdown files.
+Born in 1984 in Lisbon, Portugal 
+Married with 2 little kids
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+Currently works at [EIEE](www.eiee.org)
 
 ### Markdown
 
