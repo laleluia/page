@@ -1,0 +1,2291 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>GAMS-R Vizualization lecture</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Lara Aleluia Reis" />
+    <meta name="author" content="Laurent Drouet" />
+    <meta name="date" content="2021-04-15" />
+    <script src="RGAMS_slides_files/header-attrs/header-attrs.js"></script>
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# GAMS-R Vizualization lecture
+### Lara Aleluia Reis
+### Laurent Drouet
+### 2021-04-15
+
+---
+
+
+&lt;style type="text/css"&gt;
+
+body, td {
+   font-size: 16px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+&lt;/style&gt;
+
+
+
+
+
+## Presentation
+
+Lara Aleluia Reis, Environmental engineer 
+
+- Air pollution modeling (R)
+- WITCH model developer at RFF-CMCC EIEE (GAMS+R).
+- More than 10 years of R experience.
+
+
+### Contribution
+
+L. Drouet, author of several R packages, in particular, `gdxtools` and a GAMS extension for the code editor `Visual Code Studio`.
+
+---
+
+## Purpose of the lecture
+
+You will learn how to interface GAMS and R 
+
+--
+
+**Through GDX file format**
+
+--
+
+To visualize data sets for
+the diagnostic and the analysis of GAMS models. 
+
+--
+
+| | |
+|-|-|
+|`Ultimate Goal` | Learn how to convey your message without words |
+
+---
+
+
+### Outline
+
+1. How to start in R
+2. `GDX`: The GAMS data exchange format
+3. `gdxtools`: an `R` package to read GDX
+4. R basics
+5. Data visualization in `R` with `ggplot2`
+6. Advanced data visualization
+7. Visualization tips (for the curious)
+---
+### How to Start: Requirements
+
+
+| | |
+|-|-|
+|`Assumes` | R, RStudio and R packages are already installed |
+
+
+1. Install R [Here](https://cloud.r-project.org/)
+2. Install Rstudio [Here](https://www.rstudio.com/products/rstudio/download/#download)
+
+
+```
+We need to install the following R packages:
+'data.table'
+'ggplot2'
+'tidyr'
+'stringr'
+'gdxtools'* (how to install (https://github.com/lolow/gdxtools) for the brave ;) )
+```
+Open RStudio and paste the following command:
+
+```r
+install.packages('data.table','ggplot2','tidyr','stringr')
+```
+
+---
+class: inverse center middle
+
+## The GAMS data exchange files
+
+---
+
+## The GAMS data exchange files
+
+The GAMS data exchange format (in short GDX) is a proprietary file format to store
+all elements of your GAMS programs.
+
+* It is a database which contains a list of data from your program:
+  * the sets
+  * the parameters
+  * the variables 
+  * the equations
+  
+A lot of information is stored in the GDX file. For example, for the variables, 
+you can obtain, their values (`level`) but also their bounds (`lower`,`upper`), 
+their marginal value (`marginal`) and scaling factors (`scale`).
+
+
+
+---
+
+# Browsing a GDX in GAMS studio
+
+![What's inside a GDX](Presentation_figues/gdx_viz.png)
+
+---
+
+# Writing a GDX (in GAMS)
+
+You can write a GDX file with the command `execute_unload`:
+
+
+```gams
+execute_unload "results.gdx";
+```
+
+This will create a file containing all sets, parameters, variables and equations
+that are present when the line is executed.
+
+You can also specify which elements you want to store in the GDX file:
+
+
+```gams
+execute_unload "results.gdx", VAR1, VAR2, parameter1;
+```
+--
+
+&gt; Some models, like WITCH, already produce automatically a GDX of their results.
+&gt; In that case, this step is not required.
+
+
+---
+class: inverse center middle
+
+# gdxtools R Package
+
+---
+
+## gdxtools
+
+`gdxtools` is an R package which loads the content of a GDX file into R.
+
+* It requires a GAMS installation to work.
+
+* It is not available in the `CRAN` repository, so it needs to be installed manually.
+
+### Installation
+
+
+```r
+if (!requireNamespace("remotes"))
+  install.packages("remotes")
+
+remotes::install_github("lolow/gdxtools")
+```
+
+You might also need to install `Rtools` to be able to install the package.
+See the procedure at https://cran.r-project.org/bin/windows/Rtools
+
+---
+
+## Usage
+
+
+### Load the package
+
+
+```r
+library(gdxtools)
+```
+
+First, `gdxtools` will try to find your `GAMS` installation. If it does not find
+it, add your GAMS directory in the PATH environment variable and tell the location to the library with:
+
+
+```r
+igdx(dirname(Sys.which('gams')))
+```
+
+
+&gt; Usually, when you install GAMS on Windows, it adds automatically the GAMS location
+&gt; to your PATH. Otherwise, follow the instructions from https://helpdeskgeek.com/windows-10/add-windows-path-environment-variable
+
+
+
+---
+
+## Usage
+
+
+### Connexion to a GDX file
+
+You define a GDX file with the command `gdx`. Here a results file from the WITCH model.
+
+
+```r
+mygdx &lt;- gdx(file.path('Material','results_ssp2_bau.gdx'))
+```
+
+`mygdx` can provide information on the GDX content.
+
+
+```r
+print(mygdx)
+```
+
+```
+## &lt;gdx: Material/results_ssp2_bau.gdx, 2048 symbols&gt;
+```
+The GDX contains *2048 symbols* (variables, parameters, sets and equations)
+
+
+---
+
+## Usage
+
+### List of variables
+
+
+```r
+print(mygdx$variables$name)
+```
+
+```
+##  [1] "UTILITY"           "PROB"              "I"                
+##  [4] "K"                 "Q"                 "BAU_Q"            
+##  [7] "COST_Y"            "COST_EN"           "COST_FUEL"        
+## [10] "FPRICE"            "I_EN"              "K_EN"             
+## [13] "MCOST_FUEL"        "MCOST_INV"         "QEL_OUT"          
+## [16] "QNEL_OUT"          "Q_EN"              "Q_FUEL"           
+## [19] "Q_IN"              "BAU_Q_EMI"         "COST_EMI"         
+## [22] "CPRICE"            "Q_EMI"             "I_RD"             
+## [25] "K_RD"              "SPILL"             "Q_EL_FLEX"        
+## [28] "K_EN_GRID"         "I_EN_GRID"         "CUM_Q_CCS"        
+## [31] "MCOST_EMI"         "Q_CCS"             "I_EN_WINDOFF"     
+## [34] "I_EN_WINDON"       "K_EN_WINDOFF"      "K_EN_WINDON"      
+## [37] "MCOST_INV_WINDOFF" "Q_EN_WINDOFF"      "Q_EN_WINDON"      
+## [40] "I_EN_PV"           "I_EN_CSP"          "K_EN_PV"          
+## [43] "K_EN_CSP"          "Q_EN_PV"           "Q_EN_CSP"         
+## [46] "ADDOILCAP"         "COST_OIL"          "CUM_OIL"          
+## [49] "I_OIL"             "I_OUT"             "OILCAP"           
+## [52] "OILPROD"           "Q_EMI_OUT"         "Q_OUT"            
+## [55] "RF"                "TEMP"              "TRF"              
+## [58] "W_EMI"             "WCUM_EMI"          "OMEGA"            
+## [61] "ELMOTOR_COST"
+```
+
+---
+
+## Usage
+
+### List of parameters
+
+
+```r
+print(mygdx$parameters$name)
+```
+
+```
+##   [1] "nb_clt_infes"                  "nb_clt_noopt"                 
+##   [3] "nb_tot_infes"                  "allerr"                       
+##   [5] "allinfoiter"                   "delta_price"                  
+##   [7] "errtrade"                      "infoiter"                     
+##   [9] "m_consumption"                 "mbalance"                     
+##  [11] "mprofit"                       "price_iter"                   
+##  [13] "solrep"                        "timer"                        
+##  [15] "trust_region"                  "errtol"                       
+##  [17] "stop_nash"                     "stop_run"                     
+##  [19] "tlen"                          "tperiod"                      
+##  [21] "year"                          "yeoh"                         
+##  [23] "eta"                           "gamma"                        
+##  [25] "srtp"                          "stpf"                         
+##  [27] "utility_cebge_global"          "utility_cebge_pc_global"      
+##  [29] "utility_cebge_pc_regional"     "utility_cebge_regional"       
+##  [31] "w_negishi"                     "alpha"                        
+##  [33] "delta"                         "delta0"                       
+##  [35] "l"                             "mer2ppp"                      
+##  [37] "m_eqq_y"                       "ppp2mer"                      
+##  [39] "q0"                            "rho"                          
+##  [41] "tfpn"                          "tfpy"                         
+##  [43] "ykali"                         "gdppc_kali"                   
+##  [45] "cexs"                          "csi"                          
+##  [47] "csi0"                          "cum_prodpp"                   
+##  [49] "delta_en"                      "delta_en0"                    
+##  [51] "delta_lcost"                   "lifetime"                     
+##  [53] "k_en0"                         "localpll"                     
+##  [55] "mcost_inv0"                    "mu"                           
+##  [57] "mu0"                           "oem"                          
+##  [59] "oem0"                          "p_mkup"                       
+##  [61] "p_mkup0"                       "prodpp"                       
+##  [63] "twh2ej"                        "wcum"                         
+##  [65] "tpes"                          "noeloil"                      
+##  [67] "c2co2"                         "carbonprice"                  
+##  [69] "emi_bio_harv"                  "emi_cap"                      
+##  [71] "emi_st"                        "m_eqq_emi_lim"                
+##  [73] "m_eqq_emi_tree"                "rd_coef"                      
+##  [75] "rd_delta"                      "krd0"                         
+##  [77] "rd_crowd_out"                  "krd_lead"                     
+##  [79] "krd_oth_lead_krd"              "wkrd0"                        
+##  [81] "wlspill_k_rd"                  "ctax"                         
+##  [83] "cv_coeff"                      "cv_exp"                       
+##  [85] "el_free_cap"                   "flex_coeff"                   
+##  [87] "grid_coeff"                    "grid_cost"                    
+##  [89] "grid_delta"                    "peak_load_fraction"           
+##  [91] "mkt_growth_rate"               "cwaste"                       
+##  [93] "cwaste_reg"                    "wastemgm"                     
+##  [95] "twh2tonU"                      "waste_emi_alpha"              
+##  [97] "waste_emi_beta"                "emi_fac"                      
+##  [99] "emi_ffac"                      "fgases_baseline"              
+## [101] "cluprice"                      "q_emi_valid_lu"               
+## [103] "elpb_capacity"                 "alp_nelback"                  
+## [105] "q_en0_back"                    "ccs_capture_eff"              
+## [107] "ccs_emi_capt"                  "ccs_leak_rate"                
+## [109] "ccs_learn"                     "ccs_stor_cap_max"             
+## [111] "ccs_stor_cap_og_onoff"         "ccs_stor_cost"                
+## [113] "ccs_stor_dist_avg"             "ccs_wcum0"                    
+## [115] "ccs_wcum_spill"                "nelcoal_cmac"                 
+## [117] "nelcoal_share_ccs"             "nelcoal_max_abat"             
+## [119] "k_en0_windon"                  "k_en_wind_norm_sum"           
+## [121] "k_en_windoff_norm"             "k_en_windon_norm"             
+## [123] "wind_mu"                       "wind_mu_marginal"             
+## [125] "oem_wind"                      "cap_factor"                   
+## [127] "wind_spill_wcum"               "yearly_hours"                 
+## [129] "windoff_pot"                   "windon_pot"                   
+## [131] "pv_pot"                        "csp_pot"                      
+## [133] "solar_mu"                      "inst_area"                    
+## [135] "inst_density"                  "k_en0_pv"                     
+## [137] "k_en0_csp"                     "oem_pv"                       
+## [139] "oem_csp"                       "tech_scen"                    
+## [141] "tech_cost_var"                 "delta_oilg"                   
+## [143] "oil_emi_st"                    "oil_esp_capacity"             
+## [145] "oem_ex"                        "oil_capacity"                 
+## [147] "oil_cost"                      "oil_cost_grade"               
+## [149] "oil_cum"                       "oil_cum_grade"                
+## [151] "oil_emi_st_grade"              "oil_reserve"                  
+## [153] "resgr"                         "res"                          
+## [155] "trade_poly_gas"                "trade_scale_gas"              
+## [157] "trade_poly_coal"               "trade_scale_coal"             
+## [159] "cmdec1"                        "cmdec2"                       
+## [161] "cmphi"                         "emi_gwp"                      
+## [163] "emi_preind"                    "rfaerosols"                   
+## [165] "rfc"                           "temp0"                        
+## [167] "tempc"                         "wcum_emi0"                    
+## [169] "wcum_emi_eq"                   "wemi"                         
+## [171] "wemi2qemi"                     "ces_ada"                      
+## [173] "comega_neg"                    "comega_pos"                   
+## [175] "k_edu0"                        "k_h0"                         
+## [177] "owa"                           "resdam"                       
+## [179] "grossdam"                      "dam_rep"                      
+## [181] "ai"                            "battery_cost"                 
+## [183] "biofuel_2005_2010"             "biofuel_2013"                 
+## [185] "coeff_ldv"                     "disutility_costs_ldv"         
+## [187] "elec_plg"                      "elec_plg_2005"                
+## [189] "fuel_cons"                     "fuel_cons_2005"               
+## [191] "fueleff_rate"                  "gdppc"                        
+## [193] "growth_func_ldv"               "inv_constraint_ldv"           
+## [195] "inv_cost_veh"                  "k_veh_2005_2015"              
+## [197] "km_demand_ldv"                 "km_demand_pv_deviation_ldv"   
+## [199] "km_demand_pv_ldv"              "krd_lo_coeff"                 
+## [201] "ldv_pthc"                      "ldv_total"                    
+## [203] "load_factor_ldv"               "max_biofuel_feed_share"       
+## [205] "oem_veh"                       "oge"                          
+## [207] "reg_discount_veh"              "service_demand_ldv"           
+## [209] "size_battery"                  "trad_biofuel_lim"             
+## [211] "transp_ldv_biofuel_feed_share" "transp_ldv_ice_feeding"       
+## [213] "transp_world_ldv_fleet"        "transp_world_ldv_ice_feeding" 
+## [215] "travel_intensity"              "travel_intensity_2005"        
+## [217] "co2_transport"                 "size_ice"                     
+## [219] "size_elmotor"                  "ice_cost"                     
+## [221] "tank_cost"                     "charger_cost"                 
+## [223] "glider_manufacture_cost"       "disutility_costs_stfr"        
+## [225] "elec_plg_stfr"                 "elec_plghbd_stfr_2005"        
+## [227] "fuel_cons_stfr"                "fuel_cons_stfr_2005"          
+## [229] "fueleff_rate_stfr"             "growth_func_stfr"             
+## [231] "inv_cost_frt"                  "km_demand_pv_stfr"            
+## [233] "km_demand_stfr"                "load_factor_stfr"             
+## [235] "oem_frt"                       "service_demand_stfr"          
+## [237] "size_battery_freight"          "stfr_total"                   
+## [239] "trbio_ctr"                     "trbio_gdp_fun"                
+## [241] "neltrbiomass0"                 "scale_trbiomass"              
+## [243] "emi_sys"                       "firm_coeff"                   
+## [245] "nelcoal_baseline"
+```
+
+---
+
+## Usage
+
+### List of sets
+
+
+```r
+print(mygdx$sets$name)
+```
+
+```
+##  [1] "all_feasible"                        
+##  [2] "all_optimal"                         
+##  [3] "irep"                                
+##  [4] "iterrep"                             
+##  [5] "tcheck"                              
+##  [6] "ierr"                                
+##  [7] "siter"                               
+##  [8] "conf"                                
+##  [9] "t"                                   
+## [10] "tfix"                                
+## [11] "tfirst"                              
+## [12] "tlast"                               
+## [13] "pre"                                 
+## [14] "n"                                   
+## [15] "oecd"                                
+## [16] "non_oecd"                            
+## [17] "clt"                                 
+## [18] "map_clt_n"                           
+## [19] "negishi_coop"                        
+## [20] "g"                                   
+## [21] "iq"                                  
+## [22] "extract"                             
+## [23] "fuel"                                
+## [24] "f"                                   
+## [25] "s"                                   
+## [26] "f_mkt"                               
+## [27] "ices_el"                             
+## [28] "j"                                   
+## [29] "j_to_scale"                          
+## [30] "jel"                                 
+## [31] "jel_own_mu"                          
+## [32] "jel_ren"                             
+## [33] "jfed"                                
+## [34] "jinv"                                
+## [35] "jinv_own_k"                          
+## [36] "jinv_to_scale"                       
+## [37] "jmcost_inv"                          
+## [38] "jnel"                                
+## [39] "jnel_ren"                            
+## [40] "jold"                                
+## [41] "jpenalty"                            
+## [42] "jreal"                               
+## [43] "jreal_to_scale"                      
+## [44] "map_ices_el"                         
+## [45] "map_j"                               
+## [46] "cce"                                 
+## [47] "e"                                   
+## [48] "ghg"                                 
+## [49] "sink"                                
+## [50] "c_mkt"                               
+## [51] "map_e"                               
+## [52] "jrd"                                 
+## [53] "jrd_lbd"                             
+## [54] "leadrd"                              
+## [55] "rd"                                  
+## [56] "rd_cooperation"                      
+## [57] "rd_tgap"                             
+## [58] "run"                                 
+## [59] "to_run"                              
+## [60] "internal"                            
+## [61] "internal_clt"                        
+## [62] "trading_t"                           
+## [63] "t_cap"                               
+## [64] "jel_firm"                            
+## [65] "jel_stdgrid"                         
+## [66] "jintren"                             
+## [67] "jtn_incompatible_with_mkt_growth_cap"
+## [68] "fgases"                              
+## [69] "t_lu"                                
+## [70] "jccs"                                
+## [71] "jlccs"                               
+## [72] "jel_wind"                            
+## [73] "jinv_wind"                           
+## [74] "jreal_wind"                          
+## [75] "wind_class"                          
+## [76] "wind_depth"                          
+## [77] "wind_dist"                           
+## [78] "wind_type"                           
+## [79] "jel_solar"                           
+## [80] "jinv_solar"                          
+## [81] "jreal_solar"                         
+## [82] "solar_dist"                          
+## [83] "solar_class"                         
+## [84] "map_oilgrade"                        
+## [85] "oilg"                                
+## [86] "valid_oilg"                          
+## [87] "m"                                   
+## [88] "oghg"                                
+## [89] "jveh"                                
+## [90] "jveh_inv"                            
+## [91] "jveh_invfix"                         
+## [92] "jfrt"                                
+## [93] "jfrt_inv"
+```
+
+---
+
+## Usage
+
+To get a vector of the global regions from the set `n`:
+
+
+```r
+mygdx["n"][[1]]
+```
+
+```
+##  [1] "brazil"      "canada"      "china"       "europe"      "india"      
+##  [6] "indonesia"   "jpnkor"      "laca"        "mena"        "mexico"     
+## [11] "oceania"     "sasia"       "seasia"      "southafrica" "ssa"        
+## [16] "te"          "usa"
+```
+
+This command extract `"n"` from the variable `mygdx`
+
+&gt; In a case of a set, you are only interested in the first column accessible with `[[1]]`  
+
+---
+
+## Usage
+
+To get a data.frame of the parameter `wemi`:
+
+
+```r
+head(mygdx["wemi"])
+```
+
+
+```
+##        e  t        value
+##   1: co2  1 8.555397e+00
+##   2: co2  2 9.312155e+00
+##   3: co2  3 1.008733e+01
+##   4: co2  4 1.074177e+01
+##   5: co2  5 1.142443e+01
+##  ---                    
+## 433: sf6 26 6.467846e-06
+## 434: sf6 27 6.467689e-06
+## 435: sf6 28 6.467630e-06
+## 436: sf6 29 6.467609e-06
+## 437: sf6 30 6.467601e-06
+```
+
+
+The parameter `wemi` has 2 dimensions the emission type `e` and the time period `t`. 
+
+
+---
+
+## Usage
+
+The definition of the symbol can be available with its attribute `"gams"`.
+
+
+```r
+print(attr(mygdx["wemi"],"gams"))
+```
+
+```
+## [1] "World GHG emissions"
+```
+
+---
+
+## Usage
+
+To get a data.frame of the variable  `Q_EMI` (its level by default):
+
+
+```r
+mygdx["Q_EMI"]
+```
+
+
+```
+##                e  t           n        value
+##     1:       nip  1      brazil 0.000000e+00
+##     2:       nip  1      canada 0.000000e+00
+##     3:       nip  1       china 0.000000e+00
+##     4:       nip  1      europe 0.000000e+00
+##     5:       nip  1       india 0.000000e+00
+##    ---                                      
+## 16826: ccs_plant 30      seasia 7.000000e-08
+## 16827: ccs_plant 30 southafrica 7.000000e-08
+## 16828: ccs_plant 30         ssa 4.538060e-06
+## 16829: ccs_plant 30          te 9.142503e-07
+## 16830: ccs_plant 30         usa 6.323520e-06
+```
+
+---
+
+## Usage
+
+To load the variable's upper bound:
+
+```r
+mygdx["Q_EMI",field = "up"]
+```
+
+
+```
+##                e  t           n value
+##     1:       nip  1      brazil     0
+##     2:       nip  1      canada     0
+##     3:       nip  1       china     0
+##     4:       nip  1      europe     0
+##     5:       nip  1       india     0
+##    ---                               
+## 16826: ccs_plant 30      seasia   Inf
+## 16827: ccs_plant 30 southafrica   Inf
+## 16828: ccs_plant 30         ssa   Inf
+## 16829: ccs_plant 30          te   Inf
+## 16830: ccs_plant 30         usa   Inf
+```
+
+---
+
+## Usage
+
+To load several gdx in one data.frame, use the function `batch_extract`
+
+
+```r
+myfiles = file.path('Material',c("results_ssp2_bau.gdx","results_ssp2_ctax50.gdx"))
+qemi = batch_extract("Q_EMI",files = myfiles)[[1]]
+qemi
+```
+
+```
+##                e  t           n      value                              gdx
+##     1:       nip  1      brazil 0.00000000    Material/results_ssp2_bau.gdx
+##     2:       nip  1      canada 0.00000000    Material/results_ssp2_bau.gdx
+##     3:       nip  1       china 0.00000000    Material/results_ssp2_bau.gdx
+##     4:       nip  1      europe 0.00000000    Material/results_ssp2_bau.gdx
+##     5:       nip  1       india 0.00000000    Material/results_ssp2_bau.gdx
+##    ---                                                                     
+## 33707: ccs_plant 30      seasia 0.09963209 Material/results_ssp2_ctax50.gdx
+## 33708: ccs_plant 30 southafrica 0.02860252 Material/results_ssp2_ctax50.gdx
+## 33709: ccs_plant 30         ssa 1.07402186 Material/results_ssp2_ctax50.gdx
+## 33710: ccs_plant 30          te 0.32548768 Material/results_ssp2_ctax50.gdx
+## 33711: ccs_plant 30         usa 0.40049922 Material/results_ssp2_ctax50.gdx
+```
+
+
+---
+class: inverse center middle
+
+# R basics
+
+---
+
+# Getting started
+
+Let's load all the libraries that we need...
+
+With RStudio open paste this code on the console
+
+
+```r
+library('data.table')
+library('ggplot2')
+library('tidyr')
+library('stringr')
+library('gdxtools')
+```
+
+The command  `library()` will load the library that contains the functions we will use
+
+Whenever you need to know what a function does, how to used it, or know more about that function use **?** before the function (e.g. `?library()`,`?sum`) 
+
+---
+# Import data into R --- From GDX
+
+
+
+```r
+# If necessary, tell where is located GAMS in you machine.
+igdx(dirname(Sys.which('gams'))) 
+```
+
+
+```r
+#define a gdx
+ dat_2c &lt;- gdx('Material/dice_2c.gdx')
+
+#have a look at the data
+str(dat_2c)
+```
+
+```
+## List of 7
+##  $ filename  : chr "Material/dice_2c.gdx"
+##  $ sets      :'data.frame':	6 obs. of  7 variables:
+##   ..$ name    : chr [1:6] "t" "tfirst" "tlast" "tearly" ...
+##   ..$ index   : int [1:6] 1 60 61 62 63 139
+##   ..$ dim     : int [1:6] 1 1 1 1 1 1
+##   ..$ card    : int [1:6] 100 1 1 0 0 10
+##   ..$ text    : chr [1:6] "Time periods (5 years per period)" "" "" "" ...
+##   ..$ doms    :List of 6
+##   .. ..$ : int 0
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..- attr(*, "class")= chr "AsIs"
+##   ..$ domnames:List of 6
+##   .. ..$ : chr "*"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..- attr(*, "class")= chr "AsIs"
+##  $ parameters:'data.frame':	79 obs. of  7 variables:
+##   ..$ name    : chr [1:79] "fosslim" "tstep" "ifopt" "elasmu" ...
+##   ..$ index   : int [1:79] 2 3 4 5 6 7 8 9 10 11 ...
+##   ..$ dim     : int [1:79] 0 0 0 0 0 0 0 0 0 0 ...
+##   ..$ card    : int [1:79] 1 1 1 1 1 1 1 1 1 1 ...
+##   ..$ text    : chr [1:79] "Maximum cumulative extraction fossil fuels (GtC)" "Years per Period" "Indicator where optimized is 1 and base is 0" "Elasticity of marginal utility of consumption" ...
+##   ..$ doms    :List of 79
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int(0) 
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int(0) 
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int(0) 
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..- attr(*, "class")= chr "AsIs"
+##   ..$ domnames:List of 79
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr(0) 
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..- attr(*, "class")= chr "AsIs"
+##  $ variables :'data.frame':	28 obs. of  7 variables:
+##   ..$ name    : chr [1:28] "MIU" "FORC" "TATM" "TOCEAN" ...
+##   ..$ index   : int [1:28] 85 86 87 88 89 90 91 92 93 94 ...
+##   ..$ dim     : int [1:28] 1 1 1 1 1 1 1 1 1 1 ...
+##   ..$ card    : int [1:28] 100 100 100 100 100 100 100 100 100 100 ...
+##   ..$ text    : chr [1:28] "Emission control rate GHGs" "Increase in radiative forcing (watts per m2 from 1900)" "Increase temperature of atmosphere (degrees C from 1900)" "Increase temperatureof lower oceans (degrees C from 1900)" ...
+##   ..$ doms    :List of 28
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int(0) 
+##   .. ..- attr(*, "class")= chr "AsIs"
+##   ..$ domnames:List of 28
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr(0) 
+##   .. ..- attr(*, "class")= chr "AsIs"
+##  $ equations :'data.frame':	26 obs. of  7 variables:
+##   ..$ name    : chr [1:26] "EEQ" "EINDEQ" "CCACCA" "CCATOTEQ" ...
+##   ..$ index   : int [1:26] 113 114 115 116 117 118 119 120 121 122 ...
+##   ..$ dim     : int [1:26] 1 1 1 1 1 1 1 1 1 1 ...
+##   ..$ card    : int [1:26] 100 100 99 100 100 100 100 100 100 100 ...
+##   ..$ text    : chr [1:26] "Emissions equation" "Industrial emissions" "Cumulative industrial carbon emissions" "Cumulative total carbon emissions" ...
+##   ..$ doms    :List of 26
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int 1
+##   .. ..$ : int(0) 
+##   .. ..- attr(*, "class")= chr "AsIs"
+##   ..$ domnames:List of 26
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr "t"
+##   .. ..$ : chr(0) 
+##   .. ..- attr(*, "class")= chr "AsIs"
+##  $ aliases   :'data.frame':	0 obs. of  3 variables:
+##   ..$ name : chr(0) 
+##   ..$ index: int(0) 
+##   ..$ base : int(0) 
+##  $ symCount  : int 139
+##  - attr(*, "class")= chr "gdx"
+```
+---
+
+
+# Import data into R 
+
+Import data from a csv
+ 
+ ```r
+ dat_2c &lt;- fread('Material/Dice2016R-091916ap.csv',header=TRUE,skip=6)
+ ```
+
+ 
+ ```r
+ #have a look at the data
+ str(dat_2c)
+ ```
+ 
+ ```
+ ## Classes 'data.table' and 'data.frame':	37 obs. of  101 variables:
+ ##  $ Year: chr  "Industrial Emissions GTCO2 per year" "Atmospheric concentration C (ppm)" "Atmospheric Temperature" "Output Net Net) " ...
+ ##  $ 2015: num  3.57e+01 4.00e+02 8.50e-01 1.05e+02 1.71e-03 ...
+ ##  $ 2020: num  3.94e+01 4.18e+02 1.02 1.25e+02 2.44e-03 ...
+ ##  $ 2025: num  4.29e+01 4.38e+02 1.19 1.47e+02 3.34e-03 ...
+ ##  $ 2030: num  4.63e+01 4.59e+02 1.37 1.72e+02 4.42e-03 ...
+ ##  $ 2035: num  4.96e+01 4.81e+02 1.55 1.98e+02 5.68e-03 ...
+ ##  $ 2040: num  5.27e+01 5.04e+02 1.74 2.27e+02 7.15e-03 ...
+ ##  $ 2045: num  5.55e+01 5.28e+02 1.93 2.59e+02 8.81e-03 ...
+ ##  $ 2050: num  58.1671 552.36 2.1272 292.4898 0.0107 ...
+ ##  $ 2055: num  60.5638 577.8409 2.3248 328.4835 0.0128 ...
+ ##  $ 2060: num  62.715 604.021 2.524 366.818 0.015 ...
+ ##  $ 2065: num  64.6149 630.7998 2.7243 407.4935 0.0175 ...
+ ##  $ 2070: num  66.2608 658.0753 2.9249 450.5069 0.0202 ...
+ ##  $ 2075: num  67.6516 685.7431 3.1253 495.8503 0.0231 ...
+ ##  $ 2080: num  68.7881 713.6996 3.3248 543.5118 0.0261 ...
+ ##  $ 2085: num  69.6727 741.8422 3.5229 593.476 0.0293 ...
+ ##  $ 2090: num  70.3085 770.0701 3.7191 645.7233 0.0326 ...
+ ##  $ 2095: num  70.6997 798.2848 3.913 700.2304 0.0361 ...
+ ##  $ 2100: num  70.8512 826.3902 4.1041 756.9693 0.0398 ...
+ ##  $ 2105: num  70.7679 854.293 4.2891 815.9578 0.0434 ...
+ ##  $ 2110: num  70.457 881.9024 4.4681 877.1887 0.0471 ...
+ ##  $ 2115: num  69.9252 909.1315 4.6412 940.6514 0.0508 ...
+ ##  $ 2120: num  6.92e+01 9.36e+02 4.81 1.01e+03 5.46e-02 ...
+ ##  $ 2125: num  6.82e+01 9.62e+02 4.97 1.07e+03 5.83e-02 ...
+ ##  $ 2130: num  67.072 987.718 5.125 1144.282 0.062 ...
+ ##  $ 2135: num  6.57e+01 1.01e+03 5.27 1.22e+03 6.57e-02 ...
+ ##  $ 2140: num  6.42e+01 1.04e+03 5.42 1.29e+03 6.93e-02 ...
+ ##  $ 2145: num  6.25e+01 1.06e+03 5.56 1.37e+03 7.29e-02 ...
+ ##  $ 2150: num  6.06e+01 1.08e+03 5.69 1.45e+03 7.64e-02 ...
+ ##  $ 2155: num  5.85e+01 1.10e+03 5.82 1.53e+03 7.98e-02 ...
+ ##  $ 2160: num  5.63e+01 1.12e+03 5.94 1.61e+03 8.32e-02 ...
+ ##  $ 2165: num  5.39e+01 1.14e+03 6.05 1.69e+03 8.64e-02 ...
+ ##  $ 2170: num  5.13e+01 1.16e+03 6.16 1.78e+03 8.96e-02 ...
+ ##  $ 2175: num  4.86e+01 1.18e+03 6.27 1.87e+03 9.27e-02 ...
+ ##  $ 2180: num  4.58e+01 1.19e+03 6.37 1.96e+03 9.56e-02 ...
+ ##  $ 2185: num  4.28e+01 1.21e+03 6.46 2.05e+03 9.85e-02 ...
+ ##  $ 2190: num  39.65 1221.819 6.547 2148.374 0.101 ...
+ ##  $ 2195: num  36.374 1233.426 6.63 2245.112 0.104 ...
+ ##  $ 2200: num  32.961 1243.569 6.708 2343.802 0.106 ...
+ ##  $ 2205: num  29.411 1252.196 6.78 2444.444 0.108 ...
+ ##  $ 2210: num  25.728 1259.26 6.847 2547.04 0.111 ...
+ ##  $ 2215: num  21.91 1264.711 6.908 2651.604 0.113 ...
+ ##  $ 2220: num  17.959 1268.501 6.964 2758.161 0.114 ...
+ ##  $ 2225: num  13.875 1270.581 7.014 2866.756 0.116 ...
+ ##  $ 2230: num  9.656 1270.902 7.06 2977.467 0.118 ...
+ ##  $ 2235: num  5.3 1269.414 7.099 3090.429 0.119 ...
+ ##  $ 2240: num  -11.86 1266.07 7.13 3203.3 0.12 ...
+ ##  $ 2245: num  -11.58 1252.696 7.157 3319.737 0.121 ...
+ ##  $ 2250: num  -11.296 1241.483 7.175 3438.072 0.121 ...
+ ##  $ 2255: num  -11.013 1231.78 7.187 3558.302 0.122 ...
+ ##  $ 2260: num  -10.731 1223.147 7.194 3680.35 0.122 ...
+ ##  $ 2265: num  -10.452 1215.283 7.198 3804.102 0.122 ...
+ ##  $ 2270: num  -10.175 1207.983 7.198 3929.427 0.122 ...
+ ##  $ 2275: num  -9.901 1201.108 7.197 4056.187 0.122 ...
+ ##  $ 2280: num  -9.63 1194.561 7.193 4184.243 0.122 ...
+ ##  $ 2285: num  -9.362 1188.277 7.188 4313.46 0.122 ...
+ ##  $ 2290: num  -9.099 1182.211 7.181 4443.707 0.122 ...
+ ##  $ 2295: num  -8.838 1176.331 7.173 4574.857 0.121 ...
+ ##  $ 2300: num  -8.582 1170.615 7.164 4706.788 0.121 ...
+ ##  $ 2305: num  -8.33 1165.047 7.155 4839.384 0.121 ...
+ ##  $ 2310: num  -8.08 1159.62 7.14 4972.53 0.12 ...
+ ##  $ 2315: num  -7.84 1154.31 7.13 5106.12 0.12 ...
+ ##  $ 2320: num  -7.6 1149.13 7.12 5240.05 0.12 ...
+ ##  $ 2325: num  -7.368 1144.067 7.11 5374.213 0.119 ...
+ ##  $ 2330: num  -7.139 1139.114 7.098 5508.517 0.119 ...
+ ##  $ 2335: num  -6.915 1134.27 7.086 5642.866 0.119 ...
+ ##  $ 2340: num  -6.696 1129.531 7.074 5777.17 0.118 ...
+ ##  $ 2345: num  -6.482 1124.894 7.061 5911.341 0.118 ...
+ ##  $ 2350: num  -6.274 1120.357 7.049 6045.294 0.117 ...
+ ##  $ 2355: num  -6.07 1115.916 7.036 6178.951 0.117 ...
+ ##  $ 2360: num  -5.872 1111.569 7.023 6312.232 0.116 ...
+ ##  $ 2365: num  -5.678 1107.313 7.011 6445.063 0.116 ...
+ ##  $ 2370: num  -5.49 1103.147 6.998 6577.373 0.116 ...
+ ##  $ 2375: num  -5.307 1099.067 6.985 6709.094 0.115 ...
+ ##  $ 2380: num  -5.129 1095.072 6.973 6840.16 0.115 ...
+ ##  $ 2385: num  -4.956 1091.159 6.96 6970.509 0.114 ...
+ ##  $ 2390: num  -4.787 1087.325 6.948 7100.082 0.114 ...
+ ##  $ 2395: num  -4.624 1083.569 6.936 7228.82 0.114 ...
+ ##  $ 2400: num  -4.465 1079.889 6.923 7356.67 0.113 ...
+ ##  $ 2405: num  -4.312 1076.281 6.911 7483.576 0.113 ...
+ ##  $ 2410: num  -4.162 1072.745 6.899 7609.486 0.112 ...
+ ##  $ 2415: num  -4.018 1069.278 6.887 7734.343 0.112 ...
+ ##  $ 2420: num  -3.878 1065.878 6.876 7858.085 0.112 ...
+ ##  $ 2425: num  -3.742 1062.544 6.864 7980.637 0.111 ...
+ ##  $ 2430: num  -3.61 1059.272 6.853 8101.9 0.111 ...
+ ##  $ 2435: num  -3.48 1056.06 6.84 8221.73 0.11 ...
+ ##  $ 2440: num  -3.36 1052.91 6.83 8339.89 0.11 ...
+ ##  $ 2445: num  -3.24 1049.82 6.82 8456.02 0.11 ...
+ ##  $ 2450: num  -3.124 1046.783 6.808 8569.468 0.109 ...
+ ##  $ 2455: num  -3.011 1043.801 6.797 8679.128 0.109 ...
+ ##  $ 2460: num  -2.9 1040.874 6.786 8783.049 0.109 ...
+ ##  $ 2465: num  -2.791 1037.999 6.775 8877.758 0.108 ...
+ ##  $ 2470: num  -2.705 1035.177 6.765 9036.187 0.108 ...
+ ##  $ 2475: num  -2.618 1032.392 6.754 9180.081 0.108 ...
+ ##  $ 2480: num  -2.531 1029.649 6.744 9313.215 0.107 ...
+ ##  $ 2485: num  -2.444 1026.947 6.734 9438.263 0.107 ...
+ ##  $ 2490: num  -2.36 1024.289 6.724 9557.121 0.107 ...
+ ##  $ 2495: num  -2.277 1021.672 6.714 9671.141 0.106 ...
+ ##  $ 2500: num  -2.196 1019.097 6.704 9781.287 0.106 ...
+ ##   [list output truncated]
+ ##  - attr(*, ".internal.selfref")=&lt;externalptr&gt;
+ ```
+
+---
+# The basics of data handling
+
+
+```r
+ #dimensions
+ dim(dat_2c)
+```
+
+```
+## [1]  37 101
+```
+
+```r
+ #column names
+ names(dat_2c[,1:10])
+```
+
+```
+##  [1] "Year" "2015" "2020" "2025" "2030" "2035" "2040" "2045" "2050" "2055"
+```
+
+```r
+ #reformat column names
+ names(dat_2c)[2:dim(dat_2c)[2]] = as.character(as.numeric(names(dat_2c)[2:dim(dat_2c)[2]]) )
+ 
+ #have a look
+ names(dat_2c[,1:10])
+```
+
+```
+##  [1] "Year" "2015" "2020" "2025" "2030" "2035" "2040" "2045" "2050" "2055"
+```
+---
+
+# The basics of data handling
+
+
+```r
+ #change name of collum
+ setnames(dat_2c,'Year','Variable')
+ 
+ #Let's make a long table we will need it for plotting 
+ mdat_2c=melt(dat_2c,id.vars = c('Variable'),variable.name='Years')
+ #or mdat_2c=melt(dat_2c,measure.vars = names(dat_2c)[2:(dim(dat_2c)[2])],variable.name='Years')
+ 
+ #let's have a look at the result
+ str(mdat_2c)
+```
+
+```
+## Classes 'data.table' and 'data.frame':	3700 obs. of  3 variables:
+##  $ Variable: chr  "Industrial Emissions GTCO2 per year" "Atmospheric concentration C (ppm)" "Atmospheric Temperature" "Output Net Net) " ...
+##  $ Years   : Factor w/ 100 levels "2015","2020",..: 1 1 1 1 1 1 1 1 1 1 ...
+##  $ value   : num  3.57e+01 4.00e+02 8.50e-01 1.05e+02 1.71e-03 ...
+##  - attr(*, ".internal.selfref")=&lt;externalptr&gt;
+```
+---
+
+# Useful data handling functions for ggplot graphs
+
+| Function        | Data.table           | Tidyverse  |
+|---------------|:-------------:|------:|
+| From columns to row      | `melt()` | `pivot_longer()` |
+| From row to columns      | `dcast()` or `spread()`      |  `pivot_longer()` |
+| merge 2 data.tables | `merge()`      |    `full_join()` |
+In this course we will use data.table functions, but you can use also Tidyverse functions
+
+There are many ways of obtaining the same results.
+
+---
+class: inverse center middle
+&lt;!--## Make a dataset longer (columns to rows)
+
+
+
+```r
+library(tidyverse)
+data &lt;- read_csv("Material/Dice2016R-091916ap.csv", skip = 6)
+names(data)[2:101] = as.character(as.numeric(names(data)[2:101]))
+
+data_long &lt;- data %&gt;%
+  rename(Variable=Year) %&gt;%
+  pivot_longer(names(data)[2:101], names_to = "Year")
+
+data_long$Year &lt;- as.numeric(data_long$Year)
+#data_long$Year &lt;- factor(data_long$Year,levels = rev(unique(data_long$Year)))
+
+data_long0 &lt;- data_long %&gt;%
+  mutate(Variable = ifelse(Variable == "Atmospheric Temperature", "Temp", Variable))
+
+ggplot(filter(data_long, Variable == "Atmospheric Temperature")) +
+  geom_line(aes(x = Year, y = value))
+```
+--&gt;
+
+# Data visualization
+
+---
+
+# The `ggplot2` package
+
+&lt;img src="Presentation_figues/ggplot.png" width="430px" height="400px" /&gt;&lt;img src="Presentation_figues/galery.png" width="430px" height="400px" /&gt;
+
+ggplot2 fast easy tips: [Here](https://github.com/rstudio/cheatsheets/raw/master/data-visualization-2.1.pdf)
+ 
+
+
+
+
+---
+
+#Let's make our first plot (time series)
+
+
+```r
+    #For time series we need numerical years
+    mdat_2c$Years=as.numeric(as.character(mdat_2c$Years))
+    #let's use data.table options to subset our data
+    ggplot(data=mdat_2c[Variable == 'Consumption'], aes(x=Years,y=value ))+
+    geom_line()
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/fig4-1.png" width="80%" style="display: block; margin: auto;" /&gt;
+
+---
+class: center
+
+# Let's make our first plot (time series)
+Take time to design and format your figure
+
+![](Presentation_figues/bart.png)
+---
+
+#Change theme to a more sober and less noisy background
+
+
+```r
+    ggplot(data=mdat_2c[Variable == 'Consumption'], aes(x=Years,y=value ))+
+    geom_line() +  xlab("") + ylab('Comsumption [trillion USD]') + #add axis labels
+    theme_bw() 
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-31-1.png" width="69%" style="display: block; margin: auto;" /&gt;
+
+---
+
+#Add a title
+
+
+```r
+    ggplot(data=mdat_2c[Variable == 'Consumption'], aes(x=Years,y=value ))+
+    geom_line() +  xlab("") + ylab('Comsumption [trillion USD]') + #add axis labels
+    theme_bw() + #change theme to a more sober and less noisy background
+    ggtitle('Comsumption - DICE - 2C Scenario')
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-32-1.png" width="69%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Scale the data 
+
+
+```r
+    ggplot(data=mdat_2c[Variable == 'Consumption'], aes(x=Years,y=value ))+
+    geom_line() +  xlab("") + ylab('Comsumption [trillion USD]') + #add axis labels
+    theme_bw() + #change theme to a more sober and less noisy background
+    ggtitle('Comsumption - DICE - 2C Scenario')+ # add tittle
+    scale_y_continuous(expand = c(0, 0)) + #frame figure window
+    scale_x_continuous(expand = c(0,0))
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-33-1.png" width="69%" style="display: block; margin: auto;" /&gt;
+
+---
+
+#Let's add more variables
+
+**Visualization tip:** Do not use different parameters in the same graph! Separate variables with large scale differences into subplots!
+
+![Do not use different parameters in the same graph! Separate variables with large scale differences into subplots](Presentation_figues/tip1.png)
+
+source: Kelleher et al. 2011
+---
+
+#Let's add more variables
+
+
+```r
+    #again we used data.table syntax
+    #use c() to create a vector 
+    vars = c('Consumption','Atmospheric Temperature',
+             'Industrial Emissions GTCO2 per year',
+             'damages')
+    ggplot(data=mdat_2c[Variable %in% vars], aes(x=Years,y=value ))+
+    geom_line() +  xlab("") + ylab('Comsumption [trillion USD]') + #add axis labels
+    theme_bw() + #change theme to a more sober and less noisy background
+    ggtitle(' ')+ #change add tittle
+    scale_y_continuous(expand = c(0, 0)) + #frame figure window to  start at 0,0
+    scale_x_continuous(expand = c(0,0))+
+    facet_wrap(~Variable,ncol=4) 
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/fig6-1.png" width="53%" style="display: block; margin: auto;" /&gt;
+---
+
+#Let's add more variables --- Scale is important
+What do you want to show? Magnitude or relative magnitude?
+
+Select meaningful axis ranges depending on your purpose!
+
+
+```r
+    ggplot(data=mdat_2c[Variable %in% vars], aes(x=Years,y=value ))+
+    geom_line() +  xlab("") + ylab('Comsumption [trillion USD]') + #add axis labels
+    theme_bw() + #change theme to a more sober and less noisy background
+    ggtitle(' ')+ #change add tittle
+    scale_y_continuous(expand = c(0, 0)) + #frame figure window to  start at 0,0
+    scale_x_continuous(expand = c(0,0))+
+    facet_wrap(~Variable,ncol=4,scales='free') 
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-34-1.png" width="55%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Save your graph
+
+
+
+```r
+    p=ggplot(data=mdat_2c[Variable %in% vars], aes(x=Years,y=value ))+
+    geom_line() +  xlab("") + ylab('Comsumption [trillion USD]') + 
+    theme_bw() + 
+    ggtitle(' ')+ 
+    scale_y_continuous(expand = c(0, 0)) + 
+    scale_x_continuous(expand = c(0,0))+
+    facet_wrap(~Variable,ncol=4,scales='free')
+    p
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/fig7-1.png" width="55%" style="display: block; margin: auto;" /&gt;
+
+```r
+    ggsave("Fig1.png",p)
+    ggsave("Fig1.pdf", width = 60, height = 6, units = "cm")
+```
+
+
+
+---
+class: inverse center middle
+
+# Advanced techniques
+
+---
+# 2D graphs - lines plots
+First read and organize your data
+
+
+```r
+#read several GDX (several scenarios with different carbon taxes)
+myfiles = file.path("Material",c("results_ssp2_bau.gdx","results_ssp2_ctax50.gdx","results_ssp2_ctax100.gdx"))
+GHG = batch_extract("Q_EMI",files=myfiles)#load GHG emissions
+#have a look at the structure
+str(GHG) #it is a list of a data frame
+```
+
+```
+## List of 1
+##  $ Q_EMI:'data.frame':	50592 obs. of  5 variables:
+##   ..$ e    : chr [1:50592] "nip" "nip" "nip" "nip" ...
+##   ..$ t    : chr [1:50592] "1" "1" "1" "1" ...
+##   ..$ n    : chr [1:50592] "brazil" "canada" "china" "europe" ...
+##   ..$ value: num [1:50592] 0 0 0 0 0 0 0 0 0 0 ...
+##   ..$ gdx  : chr [1:50592] "Material/results_ssp2_bau.gdx" "Material/results_ssp2_bau.gdx" "Material/results_ssp2_bau.gdx" "Material/results_ssp2_bau.gdx" ...
+##   ..- attr(*, "gams")= chr ""
+```
+
+
+```r
+#this grabs the data.frame inside the list GHG$Q_EMI
+#let's transform it into a data.table for easiness
+GHG = setDT(GHG$Q_EMI)
+#same as GHG = setDT(GHG[[1]]) or setDT(GHG[['Q+EMI']])
+```
+---
+
+# 2D graphs - lines plots
+First read and organize your data
+
+
+```r
+#have a look now
+str(GHG)
+```
+
+```
+## Classes 'data.table' and 'data.frame':	50592 obs. of  5 variables:
+##  $ e    : chr  "nip" "nip" "nip" "nip" ...
+##  $ t    : chr  "1" "1" "1" "1" ...
+##  $ n    : chr  "brazil" "canada" "china" "europe" ...
+##  $ value: num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ gdx  : chr  "Material/results_ssp2_bau.gdx" "Material/results_ssp2_bau.gdx" "Material/results_ssp2_bau.gdx" "Material/results_ssp2_bau.gdx" ...
+##  - attr(*, "gams")= chr ""
+##  - attr(*, ".internal.selfref")=&lt;externalptr&gt;
+```
+
+```r
+#let's transform time periods into Years
+GHG$t = as.numeric(GHG$t)*5 + 2000
+#let's transform the file names into meaningful scenario names
+#let's use functions of the package stringr
+GHG$gdx=str_remove(GHG$gdx,'Material/results_ssp2_')
+GHG$gdx=str_remove(GHG$gdx,'.gdx')
+```
+
+---
+
+# 2D graphs - lines plots
+
+```r
+# we can also change the names directly as we wish
+# first let's transform into it factors
+GHG$gdx=as.factor(GHG$gdx)
+levels(GHG$gdx) = c('REF','Ctax100','Ctax50')
+# now let's change a columns name
+setnames(GHG,'gdx','Scenario')
+# let's have a look again
+str(GHG)
+```
+
+```
+## Classes 'data.table' and 'data.frame':	50592 obs. of  5 variables:
+##  $ e       : chr  "nip" "nip" "nip" "nip" ...
+##  $ t       : num  2005 2005 2005 2005 2005 ...
+##  $ n       : chr  "brazil" "canada" "china" "europe" ...
+##  $ value   : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ Scenario: Factor w/ 3 levels "REF","Ctax100",..: 1 1 1 1 1 1 1 1 1 1 ...
+##  - attr(*, "gams")= chr ""
+##  - attr(*, ".internal.selfref")=&lt;externalptr&gt;
+```
+---
+
+# 2D graphs - lines plots
+
+```r
+# We have 4 changing variables, let's reduce it to 3 by aggregation the regions into world
+# let's use the functionalities of data.table
+wGHG = GHG[,list(value=sum(value)),by=c('e','t','Scenario')]
+# have a look
+str(wGHG)
+```
+
+```
+## Classes 'data.table' and 'data.frame':	2976 obs. of  4 variables:
+##  $ e       : chr  "nip" "nip" "nip" "nip" ...
+##  $ t       : num  2005 2010 2015 2020 2025 ...
+##  $ Scenario: Factor w/ 3 levels "REF","Ctax100",..: 1 1 1 1 1 1 1 1 1 1 ...
+##  $ value   : num  0 0 0 0 0 0 0 0 0 0 ...
+##  - attr(*, ".internal.selfref")=&lt;externalptr&gt;
+```
+---
+# 2D graphs - lines plots
+
+
+```r
+ ggplot(data=wGHG[e=='co2' &amp; t&lt;=2100],aes(x=t,y=value,color=Scenario))+
+  geom_line() +  
+  theme_bw() + # change theme to a more sober and less noisy background
+  scale_x_continuous(name="", limits=c(2005, 2100)) + # add title and axis limits
+  scale_y_continuous(name="CO2 [GtCO2e]", limits=c(-3, 13))
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-40-1.png" width="60%" style="display: block; margin: auto;" /&gt;
+
+---
+#  lines plots - meaningfull meassages
+
+
+```r
+# let's change unit of a given Pollutant (CO2) from GtCe to CtCO2
+wGHG[e=='co2',]$value = wGHG[e=='co2',]$value*44/12
+# Now let's have a look at our data
+ ggplot(data = wGHG[e=='co2' &amp; t&lt;=2100], aes(x=t,y=value,color=Scenario))+
+  geom_line() + 
+  theme_bw() +
+  scale_x_continuous(name="", limits=c(2005, 2100)) + # add title and axis limits
+  scale_y_continuous(name="CO2 [GtCO2e]", limits=c(-5, 50))+
+  geom_hline(yintercept = 0,color='Black',size=0.8) 
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-41-1.png" width="60%" style="display: block; margin: auto;" /&gt;
+Now it is easy to see that a carbon tax of 100 is enough to hit negative carbon emissions
+
+---
+# 2D graphs - add a tittle
+
+
+```r
+ ggplot(data=wGHG[e=='co2' &amp; t&lt;=2100],aes(x=t,y=value,color=Scenario))+
+  geom_line() +  
+  theme_bw() + # change theme to a more sober and less noisy background
+  scale_x_continuous(name="", limits=c(2005, 2100)) + # add title and axis limits
+  scale_y_continuous(name="CO2 [GtCO2e]", limits=c(-5, 50))+
+  geom_hline(yintercept = 0,color='Black',size=0.8)+
+  ggtitle('CO2 Emissions') # add title 
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-42-1.png" width="70%" style="display: block; margin: auto;" /&gt;
+---
+
+# 2D graphs - lines plots - adjust axis
+Ease the eye
+
+```r
+ ggplot(data=wGHG[e=='co2' &amp; t&lt;=2100],aes(x=t,y=value,color=Scenario))+
+  geom_line() +  
+  theme_bw() + #change theme to a more sober and less noisy background
+  scale_x_continuous(name="", limits=c(2005, 2100),# add title and axis limits
+                     breaks=c(seq(2005,2100,by=10),2100), #define the axis labels
+                     guide = guide_axis(n.dodge=2)) + #avoid overlaping
+  scale_y_continuous(name="CO2 [GtCO2e]", limits=c(-5, 50))+
+  geom_hline(yintercept = 0,color='Black',size=0.8)+
+  ggtitle('CO2 Emissions') #add title 
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-43-1.png" width="65%" style="display: block; margin: auto;" /&gt;
+---
+
+# Help the reader
+
+
+```r
+#change the color order to convey help pass your message
+wGHG$Scenario &lt;- factor(wGHG$Scenario, levels = c("REF","Ctax50","Ctax100"))
+ ggplot(data=wGHG[e=='co2' &amp; t&lt;=2100],aes(x=t,y=value,color=Scenario))+
+  geom_line() +  
+  theme_bw() + #change theme to a more sober and less noisy background
+  scale_x_continuous(name="", limits=c(2005, 2100),# add title and axis limits
+                     breaks=c(seq(2005,2100,by=10),2100), #define the axis labels
+                     guide = guide_axis(n.dodge=2)) + #avoid overlaping
+  scale_y_continuous(name="CO2 [GtCO2e]", limits=c(-5, 50))+
+  geom_hline(yintercept = 0,color='Black',size=0.8)+
+  ggtitle('CO2 Emissions') #add title 
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-44-1.png" width="65%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Choose your colors
+
+Here are some libraries with color pallets
+
+
+```r
+#install them first if you have not yet done it
+#install.packages('viridis')
+library(ggsci) # scientific colors
+library(viridis) #looks good and includes many options
+library(RColorBrewer) # wide choice
+library(wesanderson) # for the nostalgic days
+```
+&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; Same magnitude &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; 
+&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; 
+&amp;nbsp; Divergent (zero in the scale)
+
+&lt;img src="Presentation_figues/tip2.png" height="250px" width="800px" /&gt;
+source: Kelleher et al. 2011
+
+
+---
+
+# Line plot - Colors
+
+
+```r
+# change the color order to convey help pass your message
+ ggplot(data=wGHG[e=='co2' &amp; t&lt;=2100],aes(x=t,y=value,color=Scenario))+
+  geom_line() +  
+  theme_bw() + # change theme to a more sober and less noisy background
+  scale_x_continuous(name="", limits=c(2005, 2100),# add title and axis limits
+                     breaks=c(seq(2005,2100,by=10),2100), # define the axis labels
+                     guide = guide_axis(n.dodge=2)) + #avoid overlapping
+  scale_y_continuous(name="CO2 [GtCO2e]", limits=c(-5, 50))+
+  geom_hline(yintercept = 0,color='Black',size=0.8)+
+  ggtitle('CO2 Emissions') +# add title 
+  scale_color_viridis(discrete = TRUE, option = "D") # use "?" to check the options
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-46-1.png" width="60%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Line plot - Add points
+
+
+```r
+ ggplot(data=wGHG[e=='co2' &amp; t&lt;=2100],aes(x=t,y=value,color=Scenario))+
+  geom_line() +  
+  theme_bw() + # change theme to a more sober and less noisy background
+  scale_x_continuous(name="", limits=c(2005, 2100), # add title and axis limits
+                     breaks=c(seq(2005,2100,by=10),2100), # define the axis labels
+                     guide = guide_axis(n.dodge=2)) + # avoid overlapping
+  scale_y_continuous(name="CO2 [GtCO2e]", limits=c(-5, 50))+
+  geom_hline(yintercept = 0,color='Black',size=0.8)+
+  ggtitle('CO2 Emissions') +#add title 
+  scale_color_viridis(discrete = TRUE, option = "D")+ # use "?" to check the options
+  geom_point()
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-47-1.png" width="60%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Line plot - subset differnt data
+
+
+```r
+ ggplot(data=wGHG[e=='co2' &amp; t&lt;=2100],aes(x=t,y=value,color=Scenario))+
+  geom_line() +  
+  theme_bw() + # change theme to a more sober and less noisy background
+  scale_x_continuous(name="", limits=c(2005, 2100),# add title and axis limits
+                     breaks=c(seq(2005,2100,by=10),2100), # define the axis labels
+                     guide = guide_axis(n.dodge=2)) + # avoid overlapping
+  scale_y_continuous(name="CO2 [GtCO2e]", limits=c(-5, 50))+
+  geom_hline(yintercept = 0,color='Black',size=0.8)+
+  ggtitle('CO2 Emissions') +# add title 
+  scale_color_viridis(discrete = TRUE, option = "D")+ # use "?" to check the options
+  geom_point(data=wGHG[e=='co2' &amp; t&lt;=2100 &amp; Scenario=='Ctax100'],
+             aes(x=t,y=value,color=Scenario))
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-48-1.png" width="60%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Satter plots - load more data
+
+Let's get another variable and merge it with our regional Emissions (GHG)
+
+```r
+POP = batch_extract("l",files=myfiles) # load population 
+POP=setDT(POP$l)
+
+# let's transform time periods into Years
+POP$t = as.numeric(POP$t)*5 + 2000
+
+# let's transform the file names into meaningful scenario names
+POP$gdx=as.factor(POP$gdx)
+levels(POP$gdx) = c('REF','Ctax100','Ctax50')
+# now let's change a columns name
+setnames(POP,'gdx','Scenario')
+```
+
+---
+
+# Scatter plots - Merging two data.table objects
+
+Let's get another variable and merge it with our regional Emissions (GHG)
+
+```r
+# let's keep 2 emission parameters
+ dat=merge(GHG[e %in% c('kghg','ccs'),],POP,by=c('t','n','Scenario'),suffixes = c(".ghg",".pop")) 
+ # have a look, it's magical
+ str(dat)
+```
+
+```
+## Classes 'data.table' and 'data.frame':	3060 obs. of  6 variables:
+##  $ t        : num  2005 2005 2005 2005 2005 ...
+##  $ n        : chr  "brazil" "brazil" "brazil" "brazil" ...
+##  $ Scenario : Factor w/ 3 levels "REF","Ctax100",..: 1 1 2 2 3 3 1 1 2 2 ...
+##  $ e        : chr  "kghg" "ccs" "kghg" "ccs" ...
+##  $ value.ghg: num  5.12e-01 7.00e-08 4.10e-01 7.00e-08 4.10e-01 ...
+##  $ value.pop: num  186 186 186 186 186 ...
+##  - attr(*, ".internal.selfref")=&lt;externalptr&gt; 
+##  - attr(*, "sorted")= chr [1:3] "t" "n" "Scenario"
+```
+
+---
+
+# Scatter plots - Adding dimentions
+
+
+```r
+   ggplot(data=dat[t&lt;2100 &amp; e=='kghg'], aes(x=value.pop,y=value.ghg,color=n))+
+    geom_point()  
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-51-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Scatter plots - Refuse the defaut options!
+
+
+```r
+   ggplot(data=dat[t&lt;2100 &amp; e=='kghg'], aes(x=value.pop,y=value.ghg,color=n))+
+    geom_point() + theme_bw() +
+    scale_x_continuous(name="Population [millions]",expand = c(0.1, 0.1)) + 
+    scale_y_continuous(name="CO2 [GtCe]",expand = c(0.1, 0.1))+
+    scale_color_viridis(discrete = TRUE, option = "B") # choosing another option
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-52-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+For nice and ready to used scientific themes check the package `ggpubr`
+
+---
+
+# Scatter plots - Adjust legend
+
+
+```r
+   ggplot(data=dat[t&lt;2100 &amp; e=='kghg'], aes(x=value.pop,y=value.ghg,color=n))+
+    geom_point() + theme_bw() +
+    scale_x_continuous(name="Population [millions]",expand = c(0.1, 0.1)) + 
+    scale_y_continuous(name="CO2 [GtCe]",expand = c(0.1, 0.1))+
+    scale_color_viridis(discrete = TRUE, option = "B")+ # choosing another option
+    guides(col = guide_legend(ncol = 9))+ # divide in 9 columns
+    theme(legend.position="bottom") # put on top
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-53-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Scatter plots - Details are important
+Change names of legend and add guide lines
+
+```r
+   ggplot(data=dat[t&lt;2100 &amp; e=='kghg'], aes(x=value.pop,y=value.ghg,color=n))+
+    geom_point() + theme_bw() +
+    scale_x_continuous(name="Population [millions]") + 
+    scale_y_continuous(name="CO2 [GtCe]")+
+    scale_color_viridis(name="Regions",discrete = TRUE, option = "B")+ # choosing another option
+    guides(col = guide_legend(ncol = 9))+ # divide in 9 columns
+    theme(legend.position="bottom") + # put on top
+    geom_hline(yintercept=0)+ # add a horizontal line
+    geom_vline(xintercept=1000,color='red') # separate high population regions
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-54-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+---
+# Scatter plots - Add one more dimention
+
+
+```r
+   ggplot(data=dat[t&lt;2100 &amp; e=='kghg'], aes(x=value.pop,y=value.ghg,color=n,shape=Scenario))+ # add shape
+    geom_point() + theme_bw() +
+    scale_x_continuous(name="Population [millions]") + 
+    scale_y_continuous(name="CO2 [GtCe]")+
+    scale_color_viridis(name="Regions",discrete = TRUE, option = "B")+ # choosing another option
+  guides(col = guide_legend(ncol = 9))+ # divide in 9 columns
+    theme(legend.position="bottom")+ # put on top
+    geom_hline(yintercept=0)+
+    geom_vline(xintercept=1000,color='red')
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-55-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+---
+# Scatter plots - Add yet another dimention
+
+
+```r
+   ggplot(data=dat[t&lt;2100 &amp; e=='kghg'], aes(x=value.pop,y=value.ghg,color=n,shape=Scenario,alpha=t))+ # add transparency
+    geom_point() + theme_bw() +
+    scale_x_continuous(name="Population [millions]") + 
+    scale_y_continuous(name="CO2 [GtCe]")+
+    scale_color_viridis(name="Regions",discrete = TRUE, option = "B")+    
+    guides(col = guide_legend(ncol = 6))+ 
+    theme(legend.position="right")+ # put on to right
+    geom_hline(yintercept=0)+
+    geom_vline(xintercept=1000,color='red')
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-56-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Scatter plots - and one more ... too many!
+
+```r
+   ggplot(data=dat[t&lt;2100 ],  aes(x=value.pop,y=value.ghg,color=n,shape=Scenario,alpha=t,size=e))+ # add size with parameter 'e'
+    geom_point() + theme_bw(base_size = 8) +
+    scale_x_continuous(name="Population [millions]") + 
+    scale_y_continuous(name="CO2 [GtCe]")+
+    scale_color_viridis(name="Regions",discrete = TRUE, option = "B")+ 
+    guides(col = guide_legend(ncol = 6))+ 
+    theme(legend.position="right")+ 
+    geom_hline(yintercept=0)+
+    geom_vline(xintercept=1000,color='red')
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-57-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Scatter plots - Let's exagerate 
+
+
+```r
+   ggplot(data=dat[t&lt;2100 ],  aes(x=value.pop,y=value.ghg,color=n,shape=Scenario,alpha=t,size=t))+ 
+    geom_point() + theme_bw() +
+    scale_x_continuous(name="Population [millions]") + 
+    scale_y_continuous(name="CO2 [GtCe]")+
+    scale_color_viridis(name="Regions",discrete = TRUE, option = "B")+ 
+    guides(col = guide_legend(ncol = 6))+ 
+    theme(legend.position="right")+ 
+    geom_hline(yintercept=0)+
+    geom_vline(xintercept=1000,color='red')+
+    facet_grid(e~Scenario,scales='free')
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-58-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Scatter plots - help the reader
+
+
+```r
+library(ggrepel)
+   ggplot(data=dat[t&lt;2100 &amp; e=='kghg'], aes(x=value.pop,y=value.ghg,color=n))+
+    geom_point(aes(size=t),alpha=0.3) + theme_bw() +
+    scale_x_continuous(name="Population [millions]") + 
+    scale_y_continuous(name="CO2 [GtCe]")+
+    scale_color_viridis(name="Regions",discrete = TRUE, option = "B")+ 
+    guides(col = guide_legend(ncol = 3))+ # divide in 3 columns
+    theme(legend.position="right")+ 
+    geom_hline(yintercept=0)+
+    geom_vline(xintercept=1000,color='red')+
+    geom_label_repel(data=dat[t==2050 &amp; value.pop&gt;1000 &amp; e=='kghg'],
+                     aes(x=value.pop,y=value.ghg,label=n),color='black') + # draw attention to ...
+    facet_grid(~Scenario,scales='free')
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-59-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Scatter plots - Draw attention to ...
+
+
+```r
+   ggplot(data=dat[t&lt;2100 &amp; e=='kghg'], aes(x=value.pop,y=value.ghg,color=n))+
+    geom_point(aes(size=t),alpha=0.3) + theme_bw() +
+    scale_x_continuous(name="Population [millions]") + 
+    scale_y_continuous(name="CO2 [GtCe]")+
+    scale_color_viridis(name="Regions",discrete = TRUE, option = "B")+ 
+    guides(col = guide_legend(ncol = 3))+ # divide in 3 columns
+    theme(legend.position="right")+ 
+    geom_hline(yintercept=0)+
+    geom_vline(xintercept=1000,color='red')+
+    geom_point(data=dat[t==2050 &amp; value.pop&gt;1000 &amp; e=='kghg'],
+                     aes(x=value.pop,y=value.ghg,size=t),color='green')+#emphasize a few points
+    geom_label_repel(data=dat[t==2050 &amp; value.pop&gt;1000 &amp; e=='kghg'],
+                     aes(x=value.pop,y=value.ghg,label=n),color='black') + #draw attention to ...
+    facet_grid(~Scenario,scales='free')
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-60-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Box plots - Plotting distributions
+ When mean or median are not enough
+
+```r
+   ggplot(data=dat[e=='kghg'], aes(x=Scenario,y=value.ghg))+
+    geom_boxplot()
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-61-1.png" width="80%" style="display: block; margin: auto;" /&gt;
+---
+
+# Box plots - typical retouch..
+
+
+```r
+   # order x by something that makes sense
+   dat$Scenario &lt;- factor(dat$Scenario, levels = c("REF","Ctax50","Ctax100"))
+
+   ggplot(data=dat[e=='kghg'], aes(x=Scenario,y=value.ghg))+
+    geom_boxplot(outlier.shape = NA) + theme_bw()+
+    scale_color_viridis(name="Regions",discrete = TRUE, option = "D")+
+    geom_hline(yintercept = 0,color="red")+
+    scale_y_discrete(name="GHG [GtCe]")
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-62-1.png" width="80%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Box plots - add the underlying observations
+
+
+```r
+   ggplot(data=dat[e=='kghg'], aes(x=Scenario,y=value.ghg))+
+    geom_boxplot(outlier.shape = NA) + theme_bw()+
+    geom_hline(yintercept = 0,color="red")+
+    scale_y_discrete(name="GHG [GtCe]")+
+    geom_jitter(aes(color=n),shape=16, position=position_jitter(0.2),alpha=0.6)+ # add all points
+    scale_color_viridis(name="Regions",discrete = TRUE, option = "D")+
+    guides(col = guide_legend(ncol = 3))# color per region
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-63-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+
+---
+
+# Box plots - add more infomation
+
+
+```r
+   ggplot(data=dat[e=='kghg'], aes(x=Scenario,y=value.ghg))+
+    geom_boxplot(outlier.shape = NA) + theme_bw()+
+    geom_hline(yintercept = 0,color="red")+
+    scale_y_discrete(name="GHG [GtCe]")+
+    geom_jitter(aes(color=n),shape=16, position=position_jitter(0.2),alpha=0.6)+ 
+    scale_color_viridis(name="Regions",discrete = TRUE, option = "D")+
+    guides(col = guide_legend(ncol = 3)) +
+    stat_summary(data=dat[e=='kghg'], aes(x=Scenario,y=value.ghg),fun=mean, geom="point", shape=16, size=4)
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-64-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Shapes and linetypes
+
+&lt;img src="Presentation_figues/shape_linetype.jpg" height="400px" width="1100px" /&gt;
+
+
+---
+
+# Maps - Showing regional information
+We need to prepare the data first
+
+```r
+ # import the WITCH model regional definition
+ wreg = fread('Material/mapwitch17.csv',header = TRUE)
+ # we will need a new library
+ library(countrycode)
+
+  wreg$region = wreg$ISO
+  # transforms ISO codes into country names
+  wreg$region = countrycode(wreg$ISO, origin = 'iso3c', destination = 'country.name')
+  # correcting some mismatches
+  wreg[grep('Congo',wreg$region)]$region = c("Democratic Republic of the Congo", "Republic of Congo"  )
+  wreg[region=='Bosnia &amp; Herzegovina']$region = 'Bosnia and Herzegovina'
+  wreg[region=='Myanmar (Burma)']$region = 'Myanmar'
+  wreg[region=='Côte d’Ivoire']$region = 'Ivory Coast'
+  wreg[region=='Czechia']$region = 'Czech Republic'
+  wreg[ISO=='GBR']$region = 'UK'
+  wreg[ISO=='USA']$region = 'USA'
+```
+
+---
+  # Maps - Showing regional information
+
+```r
+  # Retrieve the world data for the regions of WITCH 
+  world.maps &lt;- map_data("world")
+
+  # let's transform it into a data.table
+  world.maps  = setDT(world.maps )
+  
+  # merge the WITCH regional definition with the world map
+  world.maps  = merge(world.maps,wreg,by='region',allow.cartesian=TRUE)
+  
+  # merge with our regional GHG data.table
+  # let's choose an year, a pollutant 
+  mGHG=merge(world.maps,GHG[t==2100 &amp; e=='co2' ],by=c('n'),allow.cartesian=TRUE)
+```
+Ready to plot the map now!
+
+---
+  # Maps - Showing regional information
+
+```r
+  ggplot(mGHG[ Scenario=='Ctax100',], aes(x = long, y = lat)) +
+    geom_polygon(aes( group = group, fill = value),color='black',size=.1)
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-67-1.png" width="80%" style="display: block; margin: auto;" /&gt;
+
+---
+  # Maps - color pallets are important
+
+
+
+```r
+  ggplot(mGHG[ Scenario=='Ctax100',], aes(x = long, y = lat)) +
+    geom_polygon(aes( group = group, fill = value),color='black',size=.1)+
+    scale_fill_distiller(name = "CH4 Emissions in 2050",palette ="RdYlGn",direction=-1) #revert color
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-68-1.png" width="80%" style="display: block; margin: auto;" /&gt;
+
+---
+  # Maps - Apply the tricks you already know
+
+```r
+mGHG$Scenario &lt;- factor(mGHG$Scenario, levels = c("REF","Ctax50","Ctax100"))
+  ggplot(mGHG, aes(x = long, y = lat)) +
+    geom_polygon(aes( group = group, fill = value),color='black',size=.1)+
+    theme_void()+ # clean the background
+    scale_fill_distiller(name = "CH4 Emissions in 2050",palette ="RdYlGn",direction=-1)+ # revert color
+     theme(legend.position = "bottom", strip.text.x = element_text(size=18, face="bold"))+ 
+    facet_grid(~Scenario)
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-69-1.png" width="80%" style="display: block; margin: auto;" /&gt;
+
+
+---
+  # Transforming variables
+
+```r
+  # let's transform GHG by having the scenarios as columns while keeping the rest of the structure
+  dGHG = dcast(GHG[e=='co2',], ... ~  Scenario , value.var='value' ) 
+
+  # Let's create a new variable/column
+  dGHG$dif_wrtREF =  dGHG$REF - dGHG$Ctax100
+  
+  # merge  our regional dGHG data.table to the world polygons as before
+  mpGHG=merge(world.maps,dGHG[t==2050 &amp; e=='co2' ],by=c('n'),allow.cartesian=TRUE)
+```
+
+---
+  # Transforming variables
+
+```r
+    ggplot(mpGHG, aes(x = long, y = lat)) +
+     geom_polygon(aes( group = group, fill = dif_wrtREF),color='black',size=.1)+
+     theme_void()+ # clean the background
+     scale_fill_distiller(name = "CO2 emission reduction [GtCe] ",palette ="YlGn", values = scales::rescale((1:6)^2, c(0,1)))+ #revert color
+     theme(legend.position = "bottom", strip.text.x = element_text(size=18, face="bold"))
+```
+
+&lt;img src="RGAMS_slides_files/figure-html/unnamed-chunk-71-1.png" width="80%" style="display: block; margin: auto;" /&gt;
+
+---
+class: inverse center middle
+# Tips for good visualization
+
+---
+
+
+
+# Tips for good visualization
+
+&lt;img src="Presentation_figues/tip3.jpg" height="500px" width="650px" /&gt;
+source: Kelleher et al. 2011
+
+---
+
+# Tips for good visualization
+
+&lt;img src="Presentation_figues/tip4.jpg" height="500px" width="650px" /&gt;
+source: Kelleher et al. 2011
+
+
+---
+
+## Further Readings
+
+### GAMS
+
+- GAMS documentation: https://www.gams.com/latest/docs
+
+### R
+
+- Data Visualization in R: https://wilkelab.org/SDS375
+
+### ggplot2
+- ggplot2 book https://ggplot2-book.org/
+- ggplot2 reference documentation https://ggplot2.tidyverse.org/reference/index.html
+
+---
+
+## Questions
+
+
+lara.aleluia@eiee.org
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"slideNumberFormat": "%current%",
+"highlightStyle": "github",
+"highlightLines": true,
+"ratio": "16:9",
+"countIncrementalSlides": true
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
